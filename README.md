@@ -13,21 +13,60 @@ A local RAG system using FAISS vector search and FLAN-T5 for answer generation. 
 
 ### Setup & Run
 
+### Option A: Docker (Recommended)
+
 ```bash
-# 1. Build vector database
+# 1. Build vector database (required first)
 python -m scripts.prebuild_index.py
 
-# 2. Start with Docker
+# 2. Start containers
 docker-compose up -d
 
 # 3. Test
 curl http://localhost:8000/health
 ```
+### Option B: Local Setup (If Docker Doesn't Work)
 
-**Access:**
-- API: http://localhost:8000
-- Docs: http://localhost:8000/docs
-- UI: http://localhost:8501
+**Step 1: Create Virtual Environment**
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate (Mac/Linux)
+source venv/bin/activate
+
+# Activate (Windows)
+venv\Scripts\activate
+```
+
+**Step 2: Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+**Step 3: Build Vector Database**
+```bash
+python -m scripts.prebuild_index.py
+```
+**Step 4: Run API (Terminal 1)**
+```bash
+# Make sure venv is activated
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Run Streamlit
+streamlit run streamlit_app.py
+# Opens automatically in browser at http://localhost:8501
+
+```
+**Step 6: Test**
+```bash
+# In another terminal (Terminal 3)
+curl http://localhost:8000/health
+
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "AI challenges in healthcare?", "top_k": 3}'
+```
 
 ---
 
@@ -60,6 +99,37 @@ rag/
 ```
 
 ---
+
+## Dataset Description
+
+**Source:** Wikipedia articles (AI domain)
+
+**Content:** 20 curated Wikipedia documents covering:
+- Artificial Intelligence fundamentals
+- Machine Learning concepts and algorithms
+- Deep Learning architectures
+- Natural Language Processing
+- Computer Vision
+- AI ethics and challenges
+- AI applications in various industries
+- Historical development of AI
+- Current AI research trends
+
+**Format:** `data/raw/wikipedia_documents.json`
+```json
+[
+  {
+    "id": "doc_1",
+    "title": "Artificial Intelligence",
+    "content": "Full article text...",
+    "source": "Wikipedia",
+    "url": "https://en.wikipedia.org/wiki/Artificial_intelligence"
+  }
+]
+```
+
+**Use Case:** This dataset enables Q&A about AI/ML concepts, making it perfect for demonstrating RAG capabilities on technical domain knowledge.
+
 
 ## RAG Pipeline Components
 
@@ -237,21 +307,21 @@ curl -X POST http://localhost:8000/ingest \
 
 ```
 User: "What are the applications of AI?"
-                ↓
+                
 [1] Embed query with SentenceTransformer
-    → [0.15, -0.22, 0.08, ..., 0.31] (384-dim)
-                ↓
+     [0.15, -0.22, 0.08, ..., 0.31] (384-dim)
+                
 [2] FAISS search for top-5 similar chunks
-    → Chunk 1: "AI in healthcare..." (score: 0.89)
-    → Chunk 2: "AI in finance..." (score: 0.87)
-    → Chunk 3: "AI in education..." (score: 0.84)
-                ↓
+    Chunk 1: "AI in healthcare..." (score: 0.89)
+    Chunk 2: "AI in finance..." (score: 0.87)
+    Chunk 3: "AI in education..." (score: 0.84)
+                
 [3] Build few-shot prompt with context
-    → "Answer based on context... [examples] ... Question: What are..."
-                ↓
+    "Answer based on context... [examples] ... Question: What are..."
+                
 [4] Generate with FLAN-T5
-    → "AI applications include healthcare diagnostics, financial..."
-                ↓
+    "AI applications include healthcare diagnostics, financial..."
+                
 [5] Return answer + sources
 ```
 
