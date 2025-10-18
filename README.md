@@ -299,7 +299,7 @@ curl -X POST http://localhost:8000/ingest \
   -H "Content-Type: application/json" \
   -d '{
     "documents": [
-      {"id": "doc1", "title": "AI", "text": "..."}
+      {"id": "doc1", "title": "AI", "text": "AI researchers have adapted and integrated techniques including search and mathematical optimization, formal logic."}
     ]
   }'
 ```
