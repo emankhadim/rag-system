@@ -22,7 +22,7 @@ cd rag-system
 ```bash
 
 # 1. Build vector database (required first)
-python -m scripts.prebuild_index.py
+python -m scripts.prebuild_index
 
 # 2. Start containers
 docker-compose up -d
