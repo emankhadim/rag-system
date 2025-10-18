@@ -4,13 +4,13 @@ A production-ready, local-only RAG (Retrieval-Augmented Generation) system with 
 
 ## Features
 
-- 🚀 **Fully Local**: No API keys required - runs entirely on your machine
-- 📦 **Docker Ready**: Containerized deployment with docker-compose
-- 🔍 **Fast Retrieval**: FAISS vector database with semantic search
-- 🤖 **Local LLM**: FLAN-T5 for answer generation
-- 📊 **Multiple Strategies**: Configurable retrieval and prompting strategies
-- 🎯 **Production Ready**: Health checks, error handling, and comprehensive logging
-- 🌐 **REST API**: FastAPI with automatic OpenAPI documentation
+-  **Fully Local**: No API keys required - runs entirely on your machine
+- **Docker Ready**: Containerized deployment with docker-compose
+- **Fast Retrieval**: FAISS vector database with semantic search
+- **Local LLM**: FLAN-T5 for answer generation
+- **Multiple Strategies**: Configurable retrieval and prompting strategies
+- **Production Ready**: Health checks, error handling and comprehensive logging
+- **REST API**: FastAPI with automatic OpenAPI documentation
 
 ---
 
@@ -38,7 +38,7 @@ curl http://localhost:8000/health
 # 4. Test query
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "What is AI?", "top_k": 3, "return_sources": true}'
+  -d '{"query": "Currrent AI challenges in Healthcare sector?", "top_k": 3, "return_sources": true}'
 ```
 
 **Access Points:**
@@ -57,7 +57,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # 3. Build database
-python scripts/prebuild.py
+python -m scripts.prebuild_index
 
 # 4. Start API
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -90,12 +90,10 @@ rag/
 ├── scripts/
 │   └── prebuild.py          # Build vector database
 ├── Dockerfile               # API container
-├── Dockerfile.frontend      # Streamlit container
 ├── docker-compose.yml       # Orchestration
 ├── streamlit_app.py        # Web UI
 ├── requirements.txt         # Python dependencies
 ├── .env                     # Configuration
-├── DOCKER_GUIDE.md         # Detailed Docker documentation
 └── README.md               # This file
 ```
 
@@ -218,74 +216,6 @@ User Query
   - ~1GB model size
 
 ---
-
-## Configuration
-
-### Environment Variables
-
-Create a `.env` file:
-
-```bash
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8000
-API_RELOAD=false
-
-# Model Configuration
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-LLM_MODEL=google/flan-t5-base
-DEVICE=cpu
-
-# Vector Database
-VECTOR_DB_DIR=data/processed/vector_db
-TOP_K=5
-
-# Document Processing
-CHUNK_SIZE=512
-CHUNK_OVERLAP=50
-
-# CORS (comma-separated origins)
-ALLOWED_ORIGINS=*
-```
-
-### Switching Models
-
-**Use smaller/faster LLM:**
-```bash
-LLM_MODEL=google/flan-t5-small  # 80M params, faster
-```
-
-**Use GPU (if available):**
-```bash
-DEVICE=cuda
-```
-
----
-
-## Development
-
-### Running Tests
-
-```bash
-# Test database creation
-python -c "
-from core.vector_db import VectorDatabase
-vdb = VectorDatabase()
-vdb.load('data/processed/vector_db')
-print(f'Vectors: {vdb.index.ntotal}')
-"
-
-# Test RAG system
-python -c "
-from core.rag_system import RAGSystem
-from core.embeddings import EmbeddingGenerator
-embedder = EmbeddingGenerator(model_name='sentence-transformers/all-MiniLM-L6-v2')
-rag = RAGSystem(vector_db_dir='data/processed/vector_db', llm_model_name='google/flan-t5-base', embedder=embedder)
-result = rag.query('test query')
-print(result['answer'])
-"
-```
-
 ### Adding New Documents
 
 ```bash
@@ -326,19 +256,6 @@ Default limits in `docker-compose.yml`:
 - Memory: 10GB limit, 8GB reserved
 - CPU: No limit (uses available cores)
 
-### Updating Database
-
-```bash
-# 1. Stop containers
-docker-compose down
-
-# 2. Rebuild database locally
-python scripts/prebuild.py
-
-# 3. Restart (will mount new database)
-docker-compose up -d
-```
-
 **See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for detailed Docker documentation.**
 
 ---
@@ -361,7 +278,7 @@ docker-compose up -d
 **Solution:**
 ```bash
 # Build database locally
-python scripts/prebuild.py
+python -m scripts.prebuild_index.py
 
 # Verify files exist
 ls -lh data/processed/vector_db/
@@ -406,41 +323,6 @@ ports:
 ```
 
 ---
-
-## Performance
-
-### Benchmarks (Single Query)
-
-| Metric | Value |
-|--------|-------|
-| Startup Time | 30-60s (first time) |
-| Startup Time | 10-15s (with cache) |
-| Query Time | 1-3s (average) |
-| Memory Usage | 4-6 GB |
-| Disk Space | 2-3 GB |
-
-### Optimization Tips
-
-1. **Use smaller models** for faster inference:
-   ```bash
-   LLM_MODEL=google/flan-t5-small
-   ```
-
-2. **Reduce top_k** for faster retrieval:
-   ```python
-   {"query": "...", "top_k": 3}  # Instead of 5
-   ```
-
-3. **Pre-cache models** before deployment:
-   ```bash
-   python -c "
-   from transformers import AutoModel
-   AutoModel.from_pretrained('google/flan-t5-base')
-   "
-   ```
-
----
-
 ## Advanced Usage
 
 ### Custom Retrieval Strategy
@@ -474,75 +356,6 @@ Available strategies:
 - `few_shot`: Includes examples
 - `chain_of_thought`: Step-by-step reasoning
 
----
-
-## Production Deployment
-
-### Security Checklist
-
-- [ ] Set strong CORS origins (don't use `*`)
-- [ ] Add authentication middleware
-- [ ] Use HTTPS in production
-- [ ] Set resource limits
-- [ ] Enable logging and monitoring
-- [ ] Use read-only volume mounts
-
-### Monitoring
-
-```bash
-# Health check endpoint
-curl http://localhost:8000/health
-
-# Container stats
-docker stats rag-api
-
-# View logs
-docker-compose logs --tail=100 rag-api
-```
-
-### Backup
-
-```bash
-# Backup database
-tar -czf database_backup_$(date +%Y%m%d).tar.gz data/processed/vector_db/
-
-# Backup models cache (optional)
-tar -czf models_backup.tar.gz hf-cache/
-```
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make changes
-4. Test locally
-5. Submit pull request
-
----
-
-## License
-
-MIT License - See LICENSE file for details
-
----
-
-## Support
-
-- **Issues**: Open a GitHub issue
-- **Documentation**: See `DOCKER_GUIDE.md` for Docker details
-- **API Docs**: http://localhost:8000/docs (when running)
-
----
-
-## Acknowledgments
-
-- **FAISS**: Meta AI Research
-- **Sentence-Transformers**: UKPLab
-- **FLAN-T5**: Google Research
-- **FastAPI**: Sebastián Ramírez
-
----
+--
 
 **Built with ❤️ for local, privacy-focused AI applications.**
