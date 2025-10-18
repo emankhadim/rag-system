@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ragv/
+ragv/
+
+
+# caches & big artifacts
+hf-cache/
+data/processed/
+*.bin
+*.pt
+*.safetensors
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/

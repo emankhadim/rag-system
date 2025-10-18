@@ -1,0 +1,17 @@
+# Core
+fastapi==0.111.0
+uvicorn==0.29.0
+
+# Pydantic v2
+pydantic==2.5.3
+pydantic-settings==2.2.1
+
+# ML stack
+torch==2.2.2
+transformers==4.38.2
+tokenizers==0.15.2
+sentence-transformers==2.5.1
+numpy==1.26.4
+
+# Vector DB (FAISS CPU)
+faiss-cpu==1.8.0

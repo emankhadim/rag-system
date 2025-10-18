@@ -1,0 +1,10 @@
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.venv/
+venv/
+hf-cache/
+data/processed/
+.env
+.DS_Store

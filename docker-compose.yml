@@ -1,0 +1,43 @@
+services:
+  prebuild:
+    platform: linux/amd64
+    build:
+      context: .
+    image: rag-api:amd64
+    command: python -m scripts.prebuild_index
+    volumes:
+      - ./data:/app/data           # <-- your raw file is available here
+      - ./.env:/app/.env:ro
+      - ./hf-cache:/app/hf-cache   # optional: cache models between runs
+    environment:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+
+  rag-api:
+    platform: linux/amd64
+    build:
+      context: .
+    image: rag-api:amd64
+    container_name: rag-api
+    depends_on:
+      prebuild:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+      - ./hf-cache:/app/hf-cache   # optional
+    environment:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      TOKENIZERS_PARALLELISM: "false"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
