@@ -1,0 +1,9 @@
+{
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "embedding_dim": 384,
+  "num_chunks": 124,
+  "embeddings_shape": [
+    124,
+    384
+  ]
+}
