@@ -51,7 +51,7 @@ pip install -r requirements.txt
 
 **Step 3: Build Vector Database**
 ```bash
-python -m scripts.prebuild_index.py
+python -m scripts.prebuild_index
 ```
 **Step 4: Run API (Terminal 1)**
 ```bash
