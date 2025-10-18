@@ -20,15 +20,25 @@ cd rag-system
 ### Option A: Docker (Recommended)
 
 ```bash
+#1. Start containers
+ docker compose build --no-cache
 
-# 1. Build vector database (required first)
-python -m scripts.prebuild_index
+#2. Start the services
+docker compose up 
 
-# 2. Start containers
-docker-compose up -d
-
+# Test the API from another terminal
 # 3. Test
 curl http://localhost:8000/health
+
+#4. Test query
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Can you explain me the challenges of AI?",
+    "top_k": 3,
+    "return_sources": true
+  }'
+
 ```
 ### Option B: Local Setup (If Docker Doesn't Work)
 
