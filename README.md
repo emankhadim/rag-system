@@ -1,67 +1,33 @@
 # RAG System — Retrieval-Augmented Generation API
 
-A production-ready, local-only RAG (Retrieval-Augmented Generation) system with FastAPI, FAISS, and HuggingFace Transformers.
-
-## Features
-
--  **Fully Local**: No API keys required - runs entirely on your machine
-- **Docker Ready**: Containerized deployment with docker-compose
-- **Fast Retrieval**: FAISS vector database with semantic search
-- **Local LLM**: FLAN-T5 for answer generation
-- **Multiple Strategies**: Configurable retrieval and prompting strategies
-- **Production Ready**: Health checks, error handling and comprehensive logging
-- **REST API**: FastAPI with automatic OpenAPI documentation
+A local RAG system using FAISS vector search and FLAN-T5 for answer generation. Includes semantic retrieval, sentence-aware chunking, and few-shot prompting.
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
-
 - Python 3.10+
-- Docker & Docker Compose (for containerized deployment)
-- 8GB+ RAM recommended
-- 10GB+ free disk space
+- Docker & Docker Compose
+- 8GB RAM minimum
 
-### Option 1: Docker (Recommended)
+### Setup & Run
 
 ```bash
-# 1. Build database locally (REQUIRED FIRST STEP)
+# 1. Build vector database
 python scripts/prebuild.py
 
-# 2. Start Docker containers
+# 2. Start with Docker
 docker-compose up -d
 
-# 3. Check health
+# 3. Test
 curl http://localhost:8000/health
-
-# 4. Test query
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{"query": "Currrent AI challenges in Healthcare sector?", "top_k": 3, "return_sources": true}'
 ```
 
-**Access Points:**
+**Access:**
 - API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- Streamlit UI: http://localhost:8501 (if enabled)
-
-### Option 2: Local Development
-
-```bash
-# 1. Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Build database
-python -m scripts.prebuild_index
-
-# 4. Start API
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+- Docs: http://localhost:8000/docs
+- UI: http://localhost:8501
 
 ---
 
@@ -70,84 +36,171 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 rag/
 ├── app/
-│   ├── main.py              # FastAPI application
-│   ├── config.py            # Configuration management
-│   └── models.py            # Pydantic request/response models
+│   ├── main.py              # FastAPI app
+│   ├── config.py            # Settings (models, paths)
+│   └── models.py            # Request/response schemas
 ├── core/
-│   ├── chunker.py           # Document chunking with overlap
-│   ├── embeddings.py        # SentenceTransformer wrapper
-│   ├── vector_db.py         # FAISS vector database
-│   ├── retrieval.py         # Retrieval strategies (semantic/MMR)
-│   ├── prompts.py           # Prompt templates
-│   ├── llm.py               # Local LLM (FLAN-T5)
-│   ├── pipeline.py          # RAG pipeline orchestration
-│   └── rag_system.py        # High-level RAG interface
+│   ├── chunker.py           # Sentence-aware chunking
+│   ├── embeddings.py        # SentenceTransformer encoding
+│   ├── vector_db.py         # FAISS IndexFlatIP
+│   ├── retrieval.py         # Semantic + MMR strategies
+│   ├── prompts.py           # Few-shot prompt templates
+│   ├── llm.py               # FLAN-T5 generation
+│   ├── pipeline.py          # RAG orchestration
+│   └── rag_system.py        # High-level interface
 ├── data/
 │   ├── raw/                 # Input documents
 │   │   └── wikipedia_documents.json
 │   └── processed/
 │       └── vector_db/       # FAISS index + metadata
 ├── scripts/
-│   └── prebuild.py          # Build vector database
-├── Dockerfile               # API container
-├── docker-compose.yml       # Orchestration
-├── streamlit_app.py        # Web UI
-├── requirements.txt         # Python dependencies
-├── .env                     # Configuration
-└── README.md               # This file
+│   └── prebuild.py          # Build database script
+├── docker-compose.yml
+└── requirements.txt
 ```
+
+---
+
+## RAG Pipeline Components
+
+### 1. Document Chunking (`core/chunker.py`)
+
+**Strategy:** Sentence-aware chunking with overlap
+
+```python
+chunk_size = 512      # characters per chunk
+chunk_overlap = 50    # overlap between chunks
+```
+
+**How it works:**
+- Split on sentence boundaries (`. `, `! `, `? `)
+- Maintain context with overlap
+- Preserve semantic coherence
+
+**Example:**
+```
+Document: "AI is powerful. It transforms industries. Machine learning enables predictions."
+
+Chunk 1: "AI is powerful. It transforms industries."
+Chunk 2: "It transforms industries. Machine learning enables predictions."
+         ↑ Overlap maintains context
+```
+
+---
+
+### 2. Embeddings (`core/embeddings.py`)
+
+**Model:** `sentence-transformers/all-MiniLM-L6-v2`
+
+```python
+embedding_dim = 384
+batch_size = 32
+normalization = L2 (for cosine similarity)
+```
+**Why this model:**
+- Fast inference on CPU
+- Good semantic understanding
+- Compact 80MB size
+
+---
+
+### 3. Vector Search (`core/vector_db.py`)
+
+**Index:** FAISS `IndexFlatIP` (Inner Product)
+
+```python
+# Normalized embeddings → inner product ≈ cosine similarity
+cosine_sim = dot(query_vec, doc_vec) / (||query|| * ||doc||)
+```
+
+**Search process:**
+```python
+1. Query: "WHat are the challenges of AI in healthcare?"
+2. Embed query → [0.15, -0.22, ...] (384-dim)
+3. FAISS search -> top-k similar chunks
+4. Return ranked results with scores
+```
+
+**Storage:**
+- `faiss_index.bin`: Vector index
+- `vector_db_metadata.pkl`: Chunk text + metadata
+
+---
+
+### 4. Retrieval Strategies (`core/retrieval.py`)
+
+#### **Semantic Retrieval (Default)**
+```python
+# Simple top-k by cosine similarity
+results = vector_db.query(query, k=5)
+# Returns: [doc1 (score=0.89), doc2 (0.85), doc3 (0.82), ...]
+```
+
+#### **MMR Retrieval (Optional)**
+```python
+# Maximal Marginal Relevance - balances relevance + diversity
+mmr_score = λ * relevance - (1-λ) * max_similarity_to_selected
+```
+
+**Use case:** Avoid redundant results
+
+---
+
+### 5. Prompting (`core/prompts.py`)
+
+**Available Strategies:**
+
+#### **Few-Shot Prompt (Default)**
+- **When to use:** Most queries, especially when you want consistent answer format
+- **Why:** Provides examples that guide the LLM to generate grounded, concise answers
+- **Best for:** General Q&A, factual queries, preventing hallucinations
+
+#### **Simple Prompt**
+- **When to use:** Straightforward questions with clear context
+- **Why:** Minimal prompt overhead, faster processing
+- **Best for:** Short answers, when context is very clear
+
+#### **Chain-of-Thought**
+- **When to use:** Complex reasoning, multi-step questions
+- **Why:** Encourages step-by-step thinking before answering
+- **Best for:** Math problems, logical reasoning, analytical questions
+
+
+### 6. LLM Generation (`core/llm.py`)
+
+**Model:** `google/flan-t5-base` (248M parameters)
+
+```python
+generation_config = {
+    "max_new_tokens": 150,
+    "min_new_tokens": 40,
+    "temperature": 0.0,          
+    "no_repeat_ngram_size": 3,    
+    "repetition_penalty": 1.05
+}
+```
+
+**Post-processing:**
+- Remove artifacts (quotes, brackets)
+- Normalize whitespace
+- Fallback if output is weak
 
 ---
 
 ## API Usage
 
 ### Health Check
-
 ```bash
 curl http://localhost:8000/health
 ```
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "vector_db_loaded": true,
-  "num_vectors": 125,
-  "num_documents": 10,
-  "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2",
-  "llm_model_name": "google/flan-t5-base"
-}
-```
-
-### Ingest Documents
-
-```bash
-curl -X POST http://localhost:8000/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "documents": [
-      {
-        "id": "doc_1",
-        "title": "Artificial Intelligence",
-        "text": "AI is the simulation of human intelligence...",
-        "metadata": {}
-      }
-    ],
-    "chunk_size": 512,
-    "chunk_overlap": 50
-  }'
-```
-
-### Query Documents
-
+### Query
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "What are the applications of AI in healthcare?",
-    "top_k": 5,
-    "max_new_tokens": 150,
-    "temperature": 0.0,
+    "query": "Can you explain me the challenges of AI?",
+    "top_k": 3,
     "return_sources": true
   }'
 ```
@@ -155,207 +208,103 @@ curl -X POST http://localhost:8000/query \
 **Response:**
 ```json
 {
-  "question": "What are the applications of AI in healthcare?",
-  "answer": "AI in healthcare includes diagnostic imaging, drug discovery...",
+  "answer": "Artificial intelligence is the capability of computational systems...",
   "sources": [
-    {
-      "title": "Healthcare AI",
-      "score": 0.89,
-      "text": "AI technologies are transforming..."
-    }
+    {"title": "AI Overview", "score": 0.89, "text": "..."},
+    {"title": "ML Basics", "score": 0.85, "text": "..."}
   ],
-  "num_sources": 5,
-  "processing_time": 1.234,
   "retrieval_strategy": "semantic",
-  "prompt_strategy": "few_shot",
-  "fallback_used": false
+  "prompt_strategy": "few_shot"
 }
 ```
 
----
-
-## Architecture
-
-### Tech Stack
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **API Framework** | FastAPI | REST API with automatic docs |
-| **Vector DB** | FAISS | Fast similarity search |
-| **Embeddings** | sentence-transformers | Semantic encoding |
-| **LLM** | FLAN-T5 | Answer generation |
-| **Web UI** | Streamlit | Optional chat interface |
-| **Containerization** | Docker | Deployment |
-
-### Data Flow
-
-```
-User Query
-    ↓
-[1] Embed Query (SentenceTransformer)
-    ↓
-[2] Retrieve Similar Chunks (FAISS)
-    ↓
-[3] Build Context with Top-K Results
-    ↓
-[4] Generate Answer (FLAN-T5)
-    ↓
-[5] Return Answer + Sources
-```
-
-### Models Used
-
-- **Embeddings**: `sentence-transformers/all-MiniLM-L6-v2`
-  - 384 dimensions
-  - Fast, good quality
-  - 80MB model size
-  
-- **LLM**: `google/flan-t5-base`
-  - 247M parameters
-  - Instruction-tuned
-  - ~1GB model size
-
----
-### Adding New Documents
-
+### Ingest Documents
 ```bash
-# Option 1: Via API
 curl -X POST http://localhost:8000/ingest \
   -H "Content-Type: application/json" \
-  -d @your_documents.json
-
-# Option 2: Rebuild database
-# 1. Add documents to data/raw/
-# 2. Run: python scripts/prebuild.py
-# 3. Restart Docker: docker-compose restart
+  -d '{
+    "documents": [
+      {"id": "doc1", "title": "AI", "text": "..."}
+    ]
+  }'
 ```
 
 ---
 
-## Docker Deployment
 
-### Build and Run
 
-```bash
-# Build images
-docker-compose build
+## Complete Flow Example
 
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f rag-api
-
-# Stop services
-docker-compose down
+```
+User: "What are the applications of AI?"
+                ↓
+[1] Embed query with SentenceTransformer
+    → [0.15, -0.22, 0.08, ..., 0.31] (384-dim)
+                ↓
+[2] FAISS search for top-5 similar chunks
+    → Chunk 1: "AI in healthcare..." (score: 0.89)
+    → Chunk 2: "AI in finance..." (score: 0.87)
+    → Chunk 3: "AI in education..." (score: 0.84)
+                ↓
+[3] Build few-shot prompt with context
+    → "Answer based on context... [examples] ... Question: What are..."
+                ↓
+[4] Generate with FLAN-T5
+    → "AI applications include healthcare diagnostics, financial..."
+                ↓
+[5] Return answer + sources
 ```
 
-### Resource Limits
+---
 
-Default limits in `docker-compose.yml`:
-- Memory: 10GB limit, 8GB reserved
-- CPU: No limit (uses available cores)
+## Docker Commands
 
-**See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for detailed Docker documentation.**
+```bash
+# Start
+docker-compose up -d
+
+# Logs
+docker-compose logs -f rag-api
+
+# Stop
+docker-compose down
+
+# Rebuild
+docker-compose build --no-cache
+```
 
 ---
 
 ## Troubleshooting
 
-### Container Crashes on Query
-
-**Symptom:** `curl: (52) Empty reply from server` or `exit code 139`
-
-**Solution:** 
-- PyTorch CPU incompatibility in Docker
-- Already fixed in current Dockerfile with proper system libraries
-- If still issues, increase memory limit in `docker-compose.yml`
-
-### Database Not Found
-
-**Symptom:** "System not ready. Please ingest documents first"
-
-**Solution:**
+**Database not found:**
 ```bash
-# Build database locally
-python -m scripts.prebuild_index.py
-
-# Verify files exist
-ls -lh data/processed/vector_db/
-# Should show: faiss_index.bin, vector_db_metadata.pkl
+python scripts/prebuild.py
+ls data/processed/vector_db/  # Should show files
 ```
 
-### Slow First Query
-
-**Symptom:** First query takes 30+ seconds
-
-**Cause:** Models downloading from HuggingFace
-
-**Solution:**
-- Pre-download models or use cached directory
-- Mount `hf-cache` volume in Docker (already configured)
-
-### Out of Memory
-
-**Symptom:** Container killed or slow performance
-
-**Solution:**
+**Out of memory:**
 ```yaml
-# In docker-compose.yml, increase limits:
-deploy:
-  resources:
-    limits:
-      memory: 12G  # Increase from 10G
+# Edit docker-compose.yml
+memory: 12G  # Increase from 10G
 ```
 
-### Port Already in Use
-
-**Symptom:** "Address already in use" error
-
-**Solution:**
+**Port in use:**
 ```bash
-# Find process using port 8000
-lsof -i :8000
-
+lsof -i :8000  # Find process
 # OR change port in docker-compose.yml
-ports:
-  - "8080:8000"  # Use 8080 instead
 ```
 
 ---
-## Advanced Usage
 
-### Custom Retrieval Strategy
+## Tech Stack
 
-Use MMR (Maximal Marginal Relevance) for diverse results:
+- **Chunking**: Sentence-aware with overlap
+- **Embeddings**: sentence-transformers/all-MiniLM-L6-v2
+- **Vector DB**: FAISS IndexFlatIP (cosine similarity)
+- **Retrieval**: Semantic search (+ MMR option)
+- **Prompting**: Few-shot templates
+- **LLM**: google/flan-t5-base
+- **API**: FastAPI
 
-```python
-from core.rag_system import RAGSystem
-
-rag = RAGSystem(
-    vector_db_dir='data/processed/vector_db',
-    llm_model_name='google/flan-t5-base',
-    retrieval_strategy='mmr',  # Instead of 'semantic'
-    embedder=embedder
-)
-```
-
-### Custom Prompts
-
-Use different prompt strategies:
-
-```python
-rag = RAGSystem(
-    # ...
-    prompt_strategy='chain_of_thought'  # Instead of 'few_shot'
-)
-```
-
-Available strategies:
-- `simple`: Direct question-context-answer
-- `few_shot`: Includes examples
-- `chain_of_thought`: Step-by-step reasoning
-
---
-
-**Built with ❤️ for local, privacy-focused AI applications.**
+---
