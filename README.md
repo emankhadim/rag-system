@@ -12,21 +12,22 @@ A local RAG system using FAISS vector search and FLAN-T5 for answer generation. 
 - 8GB RAM minimum
 
 ### Setup & Run
-
+```bash
+# Clone repository
+git clone https://github.com/emankhadim/rag-system.git
+cd rag-system
+```
 ### Option A: Docker (Recommended)
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/emankhadim/rag-system.git
-cd rag-system
 
-# 2. Build vector database (required first)
+# 1. Build vector database (required first)
 python -m scripts.prebuild_index.py
 
-# 3. Start containers
+# 2. Start containers
 docker-compose up -d
 
-# 4. Test
+# 3. Test
 curl http://localhost:8000/health
 ```
 ### Option B: Local Setup (If Docker Doesn't Work)
