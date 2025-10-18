@@ -15,7 +15,7 @@ A local RAG system using FAISS vector search and FLAN-T5 for answer generation. 
 
 ```bash
 # 1. Build vector database
-python scripts/prebuild.py
+python -m scripts.prebuild_index.py
 
 # 2. Start with Docker
 docker-compose up -d
