@@ -168,7 +168,6 @@ Document: "AI is powerful. It transforms industries. Machine learning enables pr
 
 Chunk 1: "AI is powerful. It transforms industries."
 Chunk 2: "It transforms industries. Machine learning enables predictions."
-         ↑ Overlap maintains context
 ```
 
 ---
@@ -194,15 +193,15 @@ normalization = L2 (for cosine similarity)
 **Index:** FAISS `IndexFlatIP` (Inner Product)
 
 ```python
-# Normalized embeddings → inner product ≈ cosine similarity
+# Normalized embeddings: inner product ≈ cosine similarity
 cosine_sim = dot(query_vec, doc_vec) / (||query|| * ||doc||)
 ```
 
 **Search process:**
 ```python
 1. Query: "WHat are the challenges of AI in healthcare?"
-2. Embed query → [0.15, -0.22, ...] (384-dim)
-3. FAISS search -> top-k similar chunks
+2. Embed query: [0.15, -0.22, ...] (384-dim)
+3. FAISS search: top-k similar chunks
 4. Return ranked results with scores
 ```
 
