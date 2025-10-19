@@ -158,7 +158,7 @@ chunk_overlap = 50    # overlap between chunks
 ```
 
 **How it works:**
-- Split on sentence boundaries (`. `, `! `, `? `)
+- Split on sentence boundaries
 - Maintain context with overlap
 - Preserve semantic coherence
 
